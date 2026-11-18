@@ -10,9 +10,8 @@ from configs import configure_argument_parser
 from constants import BASE_DIR, MAIN_DOC_URL
 
 
-def whats_new():
+def whats_new(session: requests_cache.CachedSession):
     whats_new_url = urljoin(MAIN_DOC_URL, 'whatsnew/')
-    session = requests_cache.CachedSession()
     response = session.get(whats_new_url)
     response.encoding = 'utf-8'
     soup = BeautifulSoup(response.text, features='lxml')
@@ -51,8 +50,7 @@ def whats_new():
             print(*row)
 
 
-def latest_versions():
-    session = requests_cache.CachedSession()
+def latest_versions(session: requests_cache.CachedSession):
     response = session.get(MAIN_DOC_URL)
     response.encoding = 'utf-8'
     soup = BeautifulSoup(response.text, features='lxml')
@@ -85,13 +83,12 @@ def latest_versions():
         print(*row)
 
 
-def download():
+def download(session: requests_cache.CachedSession):
     downloads_url = urljoin(MAIN_DOC_URL, 'download.html')
 
     downloads_dir: Path = BASE_DIR / 'downloads'
     downloads_dir.mkdir(exist_ok=True)
 
-    session = requests_cache.CachedSession()
     response = session.get(downloads_url)
     response.encoding = 'utf-8'
     soup = BeautifulSoup(response.text, features='lxml')
@@ -124,8 +121,11 @@ MODE_TO_FUNCTION = {
 def main():
     arg_parser = configure_argument_parser(MODE_TO_FUNCTION.keys())
     args = arg_parser.parse_args()
+    session = requests_cache.CachedSession()
+    if args.clear_cache:
+        session.cache.clear()
     parser_mode = args.mode
-    MODE_TO_FUNCTION[parser_mode]()
+    MODE_TO_FUNCTION[parser_mode](session)
 
 
 if __name__ == '__main__':
