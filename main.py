@@ -8,9 +8,10 @@ from tqdm import tqdm
 
 from configs import configure_argument_parser
 from constants import BASE_DIR, MAIN_DOC_URL
+from outputs import control_output
 
 
-def whats_new(session: requests_cache.CachedSession):
+def whats_new(session: requests_cache.CachedSession) -> list[tuple]:
     whats_new_url = urljoin(MAIN_DOC_URL, 'whatsnew/')
     response = session.get(whats_new_url)
     response.encoding = 'utf-8'
@@ -25,7 +26,10 @@ def whats_new(session: requests_cache.CachedSession):
         'li',
         attrs={'class': 'toctree-l1'},
     )
-    results = list()
+
+    results: list[tuple] = [
+        ('Ссылка на статью', 'Заголовок', 'Редактор, автор'),
+    ]
     for section in tqdm(sections_by_python):
         version_a_tag = section.find('a')
         if version_a_tag is None:
@@ -46,11 +50,10 @@ def whats_new(session: requests_cache.CachedSession):
         results.append(
             (version_link, h1.text, dl_text),
         )
-        for row in results:
-            print(*row)
+    return results
 
 
-def latest_versions(session: requests_cache.CachedSession):
+def latest_versions(session: requests_cache.CachedSession) -> list[tuple]:
     response = session.get(MAIN_DOC_URL)
     response.encoding = 'utf-8'
     soup = BeautifulSoup(response.text, features='lxml')
@@ -66,7 +69,7 @@ def latest_versions(session: requests_cache.CachedSession):
     else:
         raise Exception('Не найден список c версиями Python')
 
-    results = list()
+    results: list[tuple] = [('Ссылка на документацию', 'Версия', 'Статус')]
     pattern = r'Python (?P<version>\d\.\d+) \((?P<status>.*)\)'
     for a_tag in a_tags:
         if not a_tag.has_attr('href'):
@@ -79,8 +82,7 @@ def latest_versions(session: requests_cache.CachedSession):
             version, status = a_tag.text, ''
         results.append((link, version, status))
 
-    for row in results:
-        print(*row)
+    return results
 
 
 def download(session: requests_cache.CachedSession):
@@ -125,7 +127,9 @@ def main():
     if args.clear_cache:
         session.cache.clear()
     parser_mode = args.mode
-    MODE_TO_FUNCTION[parser_mode](session)
+    results: list[tuple] = MODE_TO_FUNCTION[parser_mode](session)
+    if results is not None:
+        control_output(results, args)
 
 
 if __name__ == '__main__':
