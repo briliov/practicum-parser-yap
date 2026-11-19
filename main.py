@@ -4,25 +4,33 @@ from pathlib import Path
 from urllib.parse import urljoin
 
 import requests_cache
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
+from requests import Response
 from tqdm import tqdm
 
 from configs import configure_argument_parser, configure_logging
 from constants import BASE_DIR, MAIN_DOC_URL
 from outputs import control_output
+from utils import find_tag, get_response
 
 
 def whats_new(session: requests_cache.CachedSession) -> list[tuple]:
     whats_new_url = urljoin(MAIN_DOC_URL, 'whatsnew/')
-    response = session.get(whats_new_url)
+    response: Response | None = get_response(session, whats_new_url)
+    if response is None:
+        raise Exception('Не удалось получить ответ от сервера')
     response.encoding = 'utf-8'
     soup = BeautifulSoup(response.text, features='lxml')
-    main_div = soup.find('section', attrs={'id': 'what-s-new-in-python'})
-    if main_div is None:
-        raise Exception('Не найден блок с id what-s-new-in-python')
-    div_with_ul = main_div.find('div', attrs={'class': 'toctree-wrapper'})
-    if div_with_ul is None:
-        raise Exception('Не найден блок с классом toctree-wrapper')
+    main_div: Tag = find_tag(
+        soup,
+        'section',
+        attrs={'id': 'what-s-new-in-python'},
+    )
+    div_with_ul: Tag = find_tag(
+        main_div,
+        'div',
+        attrs={'class': 'toctree-wrapper'},
+    )
     sections_by_python = div_with_ul.find_all(
         'li',
         attrs={'class': 'toctree-l1'},
@@ -32,22 +40,20 @@ def whats_new(session: requests_cache.CachedSession) -> list[tuple]:
         ('Ссылка на статью', 'Заголовок', 'Редактор, автор'),
     ]
     for section in tqdm(sections_by_python):
-        version_a_tag = section.find('a')
-        if version_a_tag is None:
-            raise Exception('Не найден тег a в секции')
+        version_a_tag: Tag = find_tag(section, 'a')
         if not version_a_tag.has_attr('href'):
             raise Exception('Тег a не содержит атрибут href')
-        version_link = urljoin(whats_new_url, version_a_tag.get('href', ''))
-        response = session.get(version_link)
+        if not isinstance(href := version_a_tag.get('href'), str):
+            raise Exception('Ссылка на статью не найдена')
+        version_link = urljoin(whats_new_url, href)
+        response: Response | None = get_response(session, version_link)
+        if response is None:
+            continue
         response.encoding = 'utf-8'
         soup = BeautifulSoup(response.text, 'lxml')
-        h1 = soup.find('h1')
-        dl = soup.find('dl')
-        if dl is None:
-            raise Exception(f'Не найден тег dl на странице {version_link}')
+        h1: Tag = find_tag(soup, 'h1')
+        dl: Tag = find_tag(soup, 'dl')
         dl_text = dl.text.replace('\n', ' ')
-        if h1 is None:
-            raise Exception(f'Не найден тег h1 на странице {version_link}')
         results.append(
             (version_link, h1.text, dl_text),
         )
@@ -55,12 +61,16 @@ def whats_new(session: requests_cache.CachedSession) -> list[tuple]:
 
 
 def latest_versions(session: requests_cache.CachedSession) -> list[tuple]:
-    response = session.get(MAIN_DOC_URL)
+    response: Response | None = get_response(session, MAIN_DOC_URL)
+    if response is None:
+        raise Exception('Не удалось получить ответ от сервера')
     response.encoding = 'utf-8'
     soup = BeautifulSoup(response.text, features='lxml')
-    sidebar = soup.find('div', attrs={'class': 'sphinxsidebarwrapper'})
-    if not sidebar:
-        raise Exception('Не найден блок с классом sphinxsidebarwrapper')
+    sidebar: Tag = find_tag(
+        soup,
+        'div',
+        attrs={'class': 'sphinxsidebarwrapper'},
+    )
     ul_tags = sidebar.find_all('ul')
 
     for ul in ul_tags:
@@ -75,7 +85,8 @@ def latest_versions(session: requests_cache.CachedSession) -> list[tuple]:
     for a_tag in a_tags:
         if not a_tag.has_attr('href'):
             raise Exception('Тег a не содержит атрибут href')
-        link = a_tag.get('href', '')
+        if not isinstance(link := a_tag.get('href'), str):
+            raise Exception('Ссылка на документацию не найдена')
         text_match = re.search(pattern, a_tag.text)
         if text_match:
             status, version = text_match.groups()
@@ -92,29 +103,31 @@ def download(session: requests_cache.CachedSession):
     downloads_dir: Path = BASE_DIR / 'downloads'
     downloads_dir.mkdir(exist_ok=True)
 
-    response = session.get(downloads_url)
+    response: Response | None = get_response(session, downloads_url)
+    if response is None:
+        raise Exception('Не удалось получить ответ от сервера')
     response.encoding = 'utf-8'
     soup = BeautifulSoup(response.text, features='lxml')
-    main_div = soup.find('div', {'role': 'main'})
+    main_div: Tag = find_tag(soup, 'div', attrs={'role': 'main'})
     if main_div:
-        table_tag = main_div.find('table', {'class': 'docutils'})
-        if table_tag:
-            pdf_a4_tag = table_tag.find(
-                'a',
-                {'href': re.compile(r'.+html\.zip$')},
-            )
-            if pdf_a4_tag:
-                pdf_a4_link = pdf_a4_tag.get('href', '')
-                if isinstance(pdf_a4_link, str):
-                    archive_url = urljoin(downloads_url, pdf_a4_link)
-                    filename = archive_url.split('/')[-1]
-                    archive_path: Path = downloads_dir / filename
-                    response = session.get(archive_url)
-                    with open(archive_path, 'wb') as file:
-                        file.write(response.content)
-                    logging.info(
-                        f'Архив был загружен и сохранен: {archive_path}',
-                    )
+        table: Tag = find_tag(main_div, 'table', attrs={'class': 'docutils'})
+        pdf_a4_tag = find_tag(
+            table,
+            'a',
+            {'href': re.compile(r'.+html\.zip$')},
+        )
+        pdf_a4_link = pdf_a4_tag.get('href', '')
+        if not isinstance(pdf_a4_link, str):
+            raise Exception('Ссылка на архив не найдена')
+        archive_url = urljoin(downloads_url, pdf_a4_link)
+        filename = archive_url.split('/')[-1]
+        archive_path: Path = downloads_dir / filename
+        response = session.get(archive_url)
+        with open(archive_path, 'wb') as file:
+            file.write(response.content)
+        logging.info(
+            f'Архив был загружен и сохранен: {archive_path}',
+        )
 
 
 MODE_TO_FUNCTION = {
