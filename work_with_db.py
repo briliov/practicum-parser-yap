@@ -1,7 +1,19 @@
 from sqlalchemy import Column, Integer, String, create_engine
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.orm import declarative_base, declared_attr
 
 Base = declarative_base()
+
+
+class AbstractBase(Base):
+    """Abstract base model."""
+
+    __abstract__ = True
+
+    @declared_attr
+    def __tablename__(cls):
+        return cls.__name__.lower()
+
+    id = Column(Integer, primary_key=True)
 
 
 class Pep(Base):
