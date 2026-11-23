@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, create_engine
-from sqlalchemy.orm import declarative_base, declared_attr
+from sqlalchemy.orm import Session, declarative_base, declared_attr
 
 Base = declarative_base()
 
@@ -26,4 +26,5 @@ class Pep(Base):
 
 if __name__ == '__main__':
     engine = create_engine('sqlite:///sqlite.db', echo=True)
+    session = Session(engine)
     Base.metadata.create_all(engine)
