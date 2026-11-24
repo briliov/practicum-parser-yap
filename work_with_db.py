@@ -21,6 +21,9 @@ class Pep(AbstractBase):
     name = Column(String(200))
     status = Column(String(20))
 
+    def __repr__(self):
+        return f'PEP {self.pep_number} {self.name}'
+
 
 if __name__ == '__main__':
     engine = create_engine('sqlite:///sqlite.db', echo=False)
@@ -29,5 +32,6 @@ if __name__ == '__main__':
 
     results = session.query(Pep).all()
     print(results)
-    results = session.query(Pep.name, Pep.status).first()
+
+    results = session.query(Pep).first()
     print(results)
