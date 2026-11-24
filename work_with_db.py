@@ -30,8 +30,12 @@ if __name__ == '__main__':
 
     session = Session(engine)
 
-    results = session.query(Pep).all()
-    print(results)
+    results = session.query(Pep).filter(Pep.status == 'Active')
+    print(type(results))
+    print(results.all())
 
-    results = session.query(Pep).first()
-    print(results)
+    results = session.query(Pep).limit(2)
+    print(results.all())
+
+    results = session.query(Pep).offset(1)
+    print(results.all())
