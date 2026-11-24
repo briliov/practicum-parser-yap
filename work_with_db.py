@@ -33,10 +33,8 @@ class Pep(Base):
 
 if __name__ == '__main__':
     engine = create_engine('sqlite:///sqlite.db', echo=False)
-
     session = Session(engine)
 
     pep8 = session.query(Pep).filter(Pep.pep_number == 8).first()
-    if pep8 is not None:
-        pep8.status = 'Closed'
-        session.commit()
+    session.delete(pep8)
+    session.commit()
