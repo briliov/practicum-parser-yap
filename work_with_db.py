@@ -23,26 +23,11 @@ class Pep(AbstractBase):
 
 
 if __name__ == '__main__':
-    engine = create_engine('sqlite:///sqlite.db', echo=True)
-    Base.metadata.create_all(engine)
+    engine = create_engine('sqlite:///sqlite.db', echo=False)
 
     session = Session(engine)
-    pep8 = Pep(
-        pep_number=8,
-        name='Style Guide for Python Code',
-        status='Active',
-    )
-    pep20 = Pep(
-        pep_number=20,
-        name='The Zen of Python',
-        status='Active',
-    )
-    pep216 = Pep(
-        pep_number=216,
-        name='Docstring Format',
-        status='Rejected',
-    )
 
-    session.add(pep8)
-    session.add_all((pep20, pep216))
-    session.commit()
+    results = session.query(Pep).all()
+    print(results)
+    results = session.query(Pep.name, Pep.status).first()
+    print(results)
