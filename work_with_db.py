@@ -1,27 +1,33 @@
-from sqlalchemy import Column, Integer, String, create_engine
-from sqlalchemy.orm import Session, declarative_base, declared_attr
+from typing import Any
 
-Base = declarative_base()
+from sqlalchemy import Integer, String, create_engine
+from sqlalchemy.orm import (
+    DeclarativeBase,
+    Mapped,
+    Session,
+    declared_attr,
+    mapped_column,
+)
 
 
-class AbstractBase(Base):
-    """Abstract base model."""
+class Base(DeclarativeBase):
+    """Abstract base model with common fields."""
 
-    __abstract__ = True
-
-    @declared_attr
-    def __tablename__(cls):
+    @declared_attr.directive
+    def __tablename__(cls: Any) -> str:
         return cls.__name__.lower()
 
-    id = Column(Integer, primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
 
 
-class Pep(AbstractBase):
-    pep_number = Column(Integer, unique=True)
-    name = Column(String(200))
-    status = Column(String(20))
+class Pep(Base):
+    """Model for PEP documents."""
 
-    def __repr__(self):
+    pep_number: Mapped[int] = mapped_column(Integer, unique=True)
+    name: Mapped[str] = mapped_column(String(200))
+    status: Mapped[str] = mapped_column(String(20))
+
+    def __repr__(self) -> str:
         return f'PEP {self.pep_number} {self.name}'
 
 
@@ -30,12 +36,7 @@ if __name__ == '__main__':
 
     session = Session(engine)
 
-    results = session.query(Pep).filter(Pep.status == 'Active')
-    print(type(results))
-    print(results.all())
-
-    results = session.query(Pep).limit(2)
-    print(results.all())
-
-    results = session.query(Pep).offset(1)
-    print(results.all())
+    pep8 = session.query(Pep).filter(Pep.pep_number == 8).first()
+    if pep8 is not None:
+        pep8.status = 'Closed'
+        session.commit()
