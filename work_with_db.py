@@ -16,9 +16,7 @@ class AbstractBase(Base):
     id = Column(Integer, primary_key=True)
 
 
-class Pep(Base):
-    __tablename__ = 'pep'
-    id = Column(Integer, primary_key=True)
+class Pep(AbstractBase):
     pep_number = Column(Integer, unique=True)
     name = Column(String(200))
     status = Column(String(20))
@@ -26,5 +24,25 @@ class Pep(Base):
 
 if __name__ == '__main__':
     engine = create_engine('sqlite:///sqlite.db', echo=True)
-    session = Session(engine)
     Base.metadata.create_all(engine)
+
+    session = Session(engine)
+    pep8 = Pep(
+        pep_number=8,
+        name='Style Guide for Python Code',
+        status='Active',
+    )
+    pep20 = Pep(
+        pep_number=20,
+        name='The Zen of Python',
+        status='Active',
+    )
+    pep216 = Pep(
+        pep_number=216,
+        name='Docstring Format',
+        status='Rejected',
+    )
+
+    session.add(pep8)
+    session.add_all((pep20, pep216))
+    session.commit()
