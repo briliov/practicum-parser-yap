@@ -1,6 +1,14 @@
 from typing import Any
 
-from sqlalchemy import Integer, String, create_engine
+from sqlalchemy import (
+    Integer,
+    String,
+    create_engine,
+    delete,
+    insert,
+    select,
+    update,
+)
 from sqlalchemy.orm import (
     DeclarativeBase,
     Mapped,
@@ -35,6 +43,22 @@ if __name__ == '__main__':
     engine = create_engine('sqlite:///sqlite.db', echo=False)
     session = Session(engine)
 
-    pep8 = session.query(Pep).filter(Pep.pep_number == 8).first()
-    session.delete(pep8)
+    # 1. CREATE (Вставка)
+    stmt = insert(Pep).values(pep_number=42, name='New PEP', status='Draft')
+    session.execute(stmt)
+    session.commit()
+
+    # 2. READ (Чтение)
+    stmt = select(Pep).where(Pep.status == 'Active')
+    # .scalars() разворачивает кортежи Row в чистые объекты Pep
+    peps = session.execute(stmt).scalars().all()
+
+    # 3. UPDATE (Обновление)
+    stmt = update(Pep).where(Pep.pep_number == 42).values(status='Active')
+    session.execute(stmt)
+    session.commit()
+
+    # 4. DELETE (Удаление)
+    stmt = delete(Pep).where(Pep.pep_number == 42)
+    session.execute(stmt)
     session.commit()
